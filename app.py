@@ -1,6 +1,5 @@
 import streamlit as st
 from analyst import load_data, suggest_prompts, prompt_to_code, run_code, ask_llm
-import pandas as pd
 
 # ── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -101,11 +100,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── SIDEBAR ──────────────────────────────────────────────────────────────────
+# ── SIDEBAR (SIMPLIFIED FOR USERS) ───────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚙️ Settings")
-    use_llm = st.checkbox("Enable Local LLM (Ollama)", value=False)
-    llm_model = st.text_input("Model", value="llama3.1")
+    st.markdown("### ⚙️ System")
+    st.info("AI Powered Analysis Enabled")
 
 # ── FILE UPLOAD ──────────────────────────────────────────────────────────────
 st.subheader("Upload Dataset")
@@ -139,33 +137,46 @@ suggestions = suggest_prompts(df)
 selected = st.selectbox("Suggested", suggestions)
 custom = st.text_area("Custom Prompt")
 
-final_prompt = custom if custom.strip() else selected
+final_prompt = custom.strip() if custom.strip() else selected
 
 st.code(final_prompt, language="text")
 
-# ── RUN ──────────────────────────────────────────────────────────────────────
+# ── RUN ANALYSIS ─────────────────────────────────────────────────────────────
 if st.button("Run Analysis"):
 
     with st.spinner("Analyzing..."):
 
+        # First try rule-based system
         code = prompt_to_code(final_prompt, df)
 
         if code:
             res = run_code(df, code)
 
         else:
-            if use_llm:
-                llm_out = ask_llm(final_prompt, model=llm_model)
+            # 🔥 OpenRouter LLM
+            system = """
+You are a professional business data analyst.
 
-                if "```python" in llm_out:
-                    code = llm_out.split("```python")[1].split("```")[0]
-                    res = run_code(df, code)
-                else:
-                    st.error("LLM did not return valid code")
-                    st.code(llm_out)
-                    st.stop()
+STRICT RULES:
+- Return ONLY Python code
+- Wrap code inside ```python ... ```
+- DataFrame name is df
+- Use pandas and matplotlib only
+- Do NOT explain anything
+"""
+
+            llm_out = ask_llm(system + "\nUser request: " + final_prompt)
+
+            if llm_out.startswith("[LLM"):
+                st.error(llm_out)
+                st.stop()
+
+            if "```python" in llm_out:
+                code = llm_out.split("```python")[1].split("```")[0]
+                res = run_code(df, code)
             else:
-                st.error("Enable LLM for custom prompts")
+                st.error("LLM did not return valid Python code")
+                st.code(llm_out)
                 st.stop()
 
     # ── OUTPUT ───────────────────────────────────────────────────────────────
@@ -175,7 +186,7 @@ if st.button("Run Analysis"):
     elif res["type"] == "dataframe":
         st.dataframe(res["df"])
         csv = res["df"].to_csv(index=False).encode("utf-8")
-        st.download_button("Download CSV", data=csv)
+        st.download_button("Download CSV", data=csv, file_name="result.csv")
 
     elif res["type"] == "image":
         st.image(res["path"])

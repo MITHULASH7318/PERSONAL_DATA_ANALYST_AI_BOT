@@ -1,25 +1,19 @@
 import io
 import tempfile
-import subprocess
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import textwrap
 import sys
+import os
+import requests
 
-# ✅ NEW: Safe dtype helpers
+# ✅ Safe dtype helpers
 from pandas.api.types import (
     is_numeric_dtype,
     is_datetime64_any_dtype
 )
-
-# Optional duckdb import
-try:
-    import duckdb
-except Exception:
-    duckdb = None
-
 
 # ----------------- Load data -----------------
 def _looks_like_csv(raw_bytes: bytes) -> bool:
@@ -45,6 +39,7 @@ def load_data(file_or_path) -> pd.DataFrame:
     name = getattr(file_or_path, "name", None)
     suffix = Path(name).suffix.lower() if name else None
     raw = file_or_path.read()
+
     if isinstance(raw, str):
         raw = raw.encode("utf-8")
 
@@ -70,7 +65,7 @@ def load_data(file_or_path) -> pd.DataFrame:
         return pd.read_json(bio)
 
 
-# ----------------- FIXED COLUMN DETECTION -----------------
+# ----------------- Column detection -----------------
 def _detect_column_types(df: pd.DataFrame):
     numeric = []
     datetime = []
@@ -79,16 +74,13 @@ def _detect_column_types(df: pd.DataFrame):
     for c in df.columns:
         col = df[c]
 
-        # ✅ Safe numeric detection
         if is_numeric_dtype(col):
             numeric.append(c)
 
-        # ✅ Safe datetime detection
         elif is_datetime64_any_dtype(col):
             datetime.append(c)
 
         else:
-            # Try parsing datetime from strings
             try:
                 parsed = pd.to_datetime(col, errors='coerce')
                 if parsed.notna().sum() > len(col) * 0.6:
@@ -113,6 +105,7 @@ def suggest_prompts(df: pd.DataFrame, max_suggestions: int = 8):
     categorical = types["categorical"]
 
     suggestions = []
+
     suggestions.append("Summarize the dataset in 5 bullet points.")
 
     if categorical:
@@ -174,34 +167,57 @@ def run_code(df: pd.DataFrame, code: str):
     try:
         exec(code, {}, local_ns)
 
+        # Chart handling
         figs = plt.get_fignums()
         if figs:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f:
-                plt.savefig(f.name)
+                plt.savefig(f.name, bbox_inches="tight", dpi=150)
                 plt.close("all")
                 return {"type": "image", "path": f.name}
 
+        # DataFrame or text
         if "result" in local_ns:
             res = local_ns["result"]
             if isinstance(res, pd.DataFrame):
                 return {"type": "dataframe", "df": res}
             return {"type": "text", "output": str(res)}
 
-        return {"type": "text", "output": "No output"}
+        return {"type": "text", "output": "No output generated"}
 
     except Exception as e:
-        return {"type": "text", "output": str(e)}
+        return {"type": "text", "output": f"Execution error: {e}"}
 
 
-# ----------------- LLM -----------------
-def ask_llm(prompt: str, model: str = "llama3.1"):
+# ----------------- ✅ NEW: OpenRouter LLM -----------------
+def ask_llm(prompt: str, model: str = "openai/gpt-4o-mini"):
+
+    api_key = os.getenv("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")
+
+    if not api_key:
+        return "[LLM unavailable] Missing API key"
+
     try:
-        proc = subprocess.run(
-            ["ollama", "run", model],
-            input=prompt.encode(),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0
+            },
         )
-        return proc.stdout.decode()
-    except Exception:
-        return "[LLM unavailable]"
+
+        data = response.json()
+
+        if "choices" not in data:
+            return f"[LLM error] {data}"
+
+        return data["choices"][0]["message"]["content"]
+
+    except Exception as e:
+        return f"[LLM error] {e}"
