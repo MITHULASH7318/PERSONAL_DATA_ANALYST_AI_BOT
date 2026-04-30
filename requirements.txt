@@ -3,5 +3,6 @@ pandas>=2.0
 numpy
 matplotlib
 scikit-learn
-requests
 scipy
+requests
+python-dotenv
