@@ -3,59 +3,105 @@ from analyst import load_data, ask_llm, run_code, prompt_to_code
 
 st.set_page_config(page_title="PERSONAL CHATBOT BUDA", layout="wide")
 
-# ── SaaS UI ─────────────────────────────────────────
+# ── PREMIUM SaaS CSS ─────────────────────────────────────────
 st.markdown("""
 <style>
-body {background:#0b0d12; color:#e8e8e8;}
-.block-container {padding:2rem 3rem;}
-.title {font-size:2.2rem; font-weight:700;}
-.sub {color:#9aa0aa; font-size:0.9rem;}
-.card {
-    background:#141821;
-    padding:1rem;
-    border-radius:12px;
-    border:1px solid #222;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+    background-color: #0b0c10;
+    color: #e6e6e6;
 }
+
+.block-container {
+    padding: 2rem 3rem;
+}
+
+h1, h2, h3 {
+    font-weight: 600;
+}
+
+.metric-card {
+    background: #151821;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #222;
+    text-align: center;
+}
+
 button {
-    background:#d4af37 !important;
-    color:black !important;
-    border-radius:8px !important;
+    background: linear-gradient(135deg, #d4af37, #b8962e) !important;
+    color: black !important;
+    border-radius: 8px !important;
+    border: none !important;
+    font-weight: 600 !important;
+}
+
+textarea, input {
+    background: #151821 !important;
+    border: 1px solid #222 !important;
+    color: #e6e6e6 !important;
+}
+
+[data-testid="stDataFrame"] {
+    border: 1px solid #222;
+    border-radius: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ── HEADER ─────────────────────────
+# ── HEADER ─────────────────────────────────────────
 st.markdown("""
-<div class="title">💼 PERSONAL CHATBOT <span style="color:#d4af37;">BUDA</span></div>
-<div class="sub">Business Data Analyst Dashboard</div>
-<hr>
+<div style="display:flex;justify-content:space-between;align-items:center;
+border-bottom:1px solid #222;padding-bottom:15px;margin-bottom:20px;">
+
+<div>
+<h1>💼 PERSONAL CHATBOT <span style="color:#d4af37;">BUDA</span></h1>
+<p style="color:#888;">Business Data Analyst Dashboard</p>
+</div>
+
+<div style="color:#d4af37;font-size:0.8rem;">
+AI AGENT ● ACTIVE
+</div>
+
+</div>
 """, unsafe_allow_html=True)
 
-# ── FILE ───────────────────────────
-file = st.file_uploader("Upload Dataset", type=["csv","xlsx","json"])
+# ── SIDEBAR ─────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### ⚙️ Settings")
+    st.markdown("Professional Data Analysis Tool")
+
+# ── FILE UPLOAD ─────────────────────────────────────
+st.subheader("📂 Upload Dataset")
+file = st.file_uploader("", type=["csv","xlsx","json"])
 
 if not file:
+    st.info("Upload a dataset to begin analysis")
     st.stop()
 
 df = load_data(file)
 
-# ── METRICS ───────────────────────
-c1,c2,c3 = st.columns(3)
-c1.metric("Rows", len(df))
-c2.metric("Columns", len(df.columns))
-c3.metric("File", file.name)
+# ── METRICS ─────────────────────────────────────────
+c1, c2, c3 = st.columns(3)
 
-# ── PREVIEW ───────────────────────
+c1.markdown(f'<div class="metric-card"><b>Rows</b><br>{len(df)}</div>', unsafe_allow_html=True)
+c2.markdown(f'<div class="metric-card"><b>Columns</b><br>{len(df.columns)}</div>', unsafe_allow_html=True)
+c3.markdown(f'<div class="metric-card"><b>File</b><br>{file.name}</div>', unsafe_allow_html=True)
+
+# ── PREVIEW ─────────────────────────────────────────
 with st.expander("Preview Data"):
     st.dataframe(df.head(100), use_container_width=True)
 
-# ── ANALYSIS ──────────────────────
-st.subheader("📊 Analysis")
+# ── ANALYSIS SECTION ─────────────────────────────────
+st.markdown("## 📊 Analysis")
 
-option = st.selectbox("Choose Analysis", [
-    "Show Rows",
-    "Summary",
-    "Statistics (Mean/Median/Mode)",
+option = st.selectbox("Choose Action", [
+    "Show First 5 Rows",
+    "Show First 10 Rows",
+    "Summary (5 Points)",
+    "Mean / Median / Mode",
     "Value Counts",
     "Bar Chart",
     "Pie Chart",
@@ -70,71 +116,46 @@ col1, col2 = st.columns(2)
 col_x = col1.selectbox("Column X", df.columns)
 col_y = col2.selectbox("Column Y", df.columns)
 
-# ── EXTRA OPTIONS (SMART UI) ───────
+prompt = st.text_area("Custom Prompt")
 
-limit = 10
-if option == "Show Rows":
-    limit = st.selectbox("How many rows?", [5, 10, 20, 50])
-
-top_n = 10
-if option in ["Bar Chart", "Pie Chart", "Value Counts"]:
-    top_n = st.selectbox("Top values to show", [5, 10, 15, 20])
-
-bins = 20
-if option == "Histogram":
-    bins = st.selectbox("Bins", [10, 20, 30, 50])
-
-prompt = ""
-if option == "Custom AI Prompt":
-    prompt = st.text_area("Enter your prompt")
-
-# ── RUN ───────────────────────────
+# ── RUN ─────────────────────────────────────────────
 if st.button("🚀 Run Analysis"):
 
-    # ── SHOW ROWS ────────────────
-    if option == "Show Rows":
-        st.dataframe(df.head(limit), use_container_width=True)
+    if option == "Show First 5 Rows":
+        st.dataframe(df.head(), use_container_width=True)
 
-    # ── SUMMARY ──────────────────
-    elif option == "Summary":
+    elif option == "Show First 10 Rows":
+        st.dataframe(df.head(10), use_container_width=True)
+
+    elif option == "Summary (5 Points)":
         st.markdown(f"""
-        • Rows: {len(df)}  
-        • Columns: {len(df.columns)}  
-        • Missing Values: {df.isnull().sum().sum()}  
-        • Numeric Columns: {len(df.select_dtypes(include='number').columns)}  
-        • Categorical Columns: {len(df.select_dtypes(exclude='number').columns)}
+        • Rows: **{len(df)}**  
+        • Columns: **{len(df.columns)}**  
+        • Missing Values: **{df.isnull().sum().sum()}**  
+        • Numeric Columns: **{len(df.select_dtypes(include='number').columns)}**  
+        • Categorical Columns: **{len(df.select_dtypes(exclude='number').columns)}**
         """)
 
-    # ── STATS ────────────────────
-    elif option == "Statistics (Mean/Median/Mode)":
+    elif option == "Mean / Median / Mode":
         st.write("Mean:", df[col_x].mean())
         st.write("Median:", df[col_x].median())
         st.write("Mode:", df[col_x].mode().values)
 
-    # ── VALUE COUNTS ─────────────
     elif option == "Value Counts":
-        st.dataframe(df[col_x].value_counts().head(top_n).reset_index())
+        st.dataframe(df[col_x].value_counts().reset_index(), use_container_width=True)
 
-    # ── BAR ──────────────────────
     elif option == "Bar Chart":
-        st.bar_chart(df[col_x].value_counts().head(top_n))
+        st.bar_chart(df[col_x].value_counts().head(10))
 
-    # ── PIE ──────────────────────
     elif option == "Pie Chart":
-        st.pyplot(df[col_x].value_counts().head(top_n).plot.pie(autopct='%1.1f%%').figure)
+        st.pyplot(df[col_x].value_counts().head(10).plot.pie(autopct='%1.1f%%').figure)
 
-    # ── HISTOGRAM ────────────────
     elif option == "Histogram":
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        df[col_x].dropna().hist(bins=bins, ax=ax)
-        st.pyplot(fig)
+        st.bar_chart(df[col_x])
 
-    # ── SCATTER ──────────────────
     elif option == "Scatter Plot":
         st.scatter_chart(df[[col_x, col_y]])
 
-    # ── HEATMAP ──────────────────
     elif option == "Correlation Heatmap":
         import matplotlib.pyplot as plt
         corr = df.select_dtypes(include='number').corr()
@@ -143,18 +164,16 @@ if st.button("🚀 Run Analysis"):
         fig.colorbar(cax)
         st.pyplot(fig)
 
-    # ── AI ───────────────────────
     elif option == "Custom AI Prompt":
 
         if not prompt:
-            st.error("Enter prompt")
+            st.error("Enter a prompt")
             st.stop()
 
         code = prompt_to_code(prompt, df)
 
         if code:
             res = run_code(df, code)
-
         else:
             llm_out = ask_llm(prompt)
 
