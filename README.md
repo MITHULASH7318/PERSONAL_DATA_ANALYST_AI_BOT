@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🧠 Personal AI Data Analyst
 
 An **interactive AI-powered data analyst dashboard** built with Python and Streamlit. This tool allows users to **upload CSV, Excel, or JSON datasets** and get automated, reliable data analysis including **summary statistics, visualizations, anomaly detection, and more**. It combines the **linguistic capabilities of AI** with **Python’s computational precision**, ensuring accurate results without hallucinations.
@@ -87,3 +88,23 @@ git clone https://github.com/your-username/DATA-ANALYST-CHATBOT.git
 cd DATA-ANALYST-CHATBOT/Personal_DataAnalyst_AI
 
 
+=======
+# PERSONAL_DATA_ANALYST_AI_BOT
+# Personal AI Data Analyst
+
+## Overview
+An interactive AI-powered data analyst dashboard built with Python and Streamlit. 
+Upload CSV, Excel, or JSON files and get automated data analysis, visualizations, and anomaly detection. Supports custom prompts via local LLM (Llama 3).
+
+## Features
+- File upload: CSV, Excel, JSON
+- Deterministic analysis: summary, top counts, histograms, scatter plots, correlation heatmaps
+- Optional AI-powered custom analysis
+- Safe Python code execution for accurate results
+- Download results as CSV
+
+## Installation
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+>>>>>>> a766d18c3bb7ac025de62d6fc61447a048e1a0f2
